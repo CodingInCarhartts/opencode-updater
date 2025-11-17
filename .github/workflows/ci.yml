@@ -9,21 +9,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo clippy -- -D warnings
-   format:
-     runs-on: ubuntu-latest
-     steps:
-       - uses: actions/checkout@v4
-       - uses: dtolnay/rust-toolchain@stable
-       - run: cargo fmt --check
-       - name: Auto-format code
-         if: failure()
-         run: |
-           cargo fmt
-           git add .
-           git config --global user.name "github-actions[bot]"
-           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-           git commit -m "fmt: Auto-format code" || echo "No changes to commit"
-           git push
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --check
+      - name: Auto-format code
+        if: failure()
+        run: cargo fmt
+      - name: Commit formatting changes
+        if: failure()
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "fmt: Auto-format code"
   test:
     runs-on: ubuntu-latest
     steps:
