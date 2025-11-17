@@ -10,10 +10,12 @@ repository = "https://github.com/CodingInCarhartts/opencode-updater"
 [dependencies]
 reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
-zip = "0.6"
+zip = "6.0"
 serde_json = "1.0"
 tempfile = "3.10"
 sha2 = "0.10"
+clap = { version = "4.0", features = ["derive"] }
+dialoguer = "0.12"
 
 [dev-dependencies]
 mockito = "1.2"
