@@ -1,1 +1,0 @@
-our github action finally works, https://github.com/CodingInCarhartts/opencode-updater/actions/runs/19421267966 
