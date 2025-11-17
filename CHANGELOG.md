@@ -9,10 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Issue and PR templates in `.github/` for standardized bug reports, feature requests, and pull requests
+- `--bin` flag for interactive selection of available binaries from GitHub releases
+- Package metadata in Cargo.toml: description, keywords, and repository URL for better discoverability
 
 ### Changed
 - Enhanced README.md with badges (CI, license, Rust version, project version), table of contents, and updated contributing link
 - Updated .gitignore for better file exclusions
+- Updated dependencies to latest versions: `dialoguer` v0.12.0, `zip` v6.0.0, and transitive updates for improved security and performance
 
 ### Fixed
 - Multiple updates to GitHub Actions CI workflow for improved reliability
