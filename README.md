@@ -33,6 +33,13 @@ A simple Rust utility to update the `opencode` binary to the latest version from
    ./target/release/opencode-updater
    ```
 
+Optional:
+   Install the updater:
+   ```bash
+   cd opencode-updater && cargo install --path .
+   opencode-updater
+   ```
+
 ## Usage
 
 Simply run the binary. It will:
