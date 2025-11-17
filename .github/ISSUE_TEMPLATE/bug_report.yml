@@ -1,0 +1,25 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+body:
+  - type: textarea
+    attributes:
+      label: Description
+      description: Describe the bug, including what you expected vs. what happened
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps to Reproduce
+      description: Provide step-by-step instructions to reproduce the issue
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Environment
+      description: Rust version, OS, and any other relevant details
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Additional Context
+      description: Screenshots, logs, or other info

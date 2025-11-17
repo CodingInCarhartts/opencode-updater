@@ -1,6 +1,23 @@
 # opencode-updater
 
+![CI](https://github.com/CodingInCarhartts/opencode-updater/workflows/CI/badge.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)
+![Version](https://img.shields.io/badge/version-0.1.0-blue)
+
 A simple Rust utility to update the `opencode` binary to the latest version from GitHub releases. This tool was created because the AUR package on Arch Linux didn't update quickly enough, and the built-in upgrade command in `opencode` wasn't working reliably.
+
+## Table of Contents
+
+- [Purpose](#purpose)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Security Notes](#security-notes)
+- [Dependencies](#dependencies)
+- [Contributing](#contributing)
+- [License](#license)
+- [Contact](#contact)
 
 ## Purpose
 
@@ -72,7 +89,7 @@ Updated opencode to latest version.
 
 ## Contributing
 
-Feel free to open issues or pull requests on GitHub.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ## License
 
