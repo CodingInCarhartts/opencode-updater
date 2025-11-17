@@ -4,45 +4,11 @@
 // Security Note: This downloads and installs executables with sudo—verify the GitHub source.
 // Integrity: Performs SHA-256 checksum verification against GitHub release checksums.
 
+use opencode_updater::{calculate_sha256, fetch_release, find_asset, verify_checksum};
 use reqwest::Client;
-use sha2::{Digest, Sha256};
 use std::io::Cursor;
 use std::process::Command;
 use zip::ZipArchive;
-
-/// Calculates the SHA-256 hash of the given bytes.
-fn calculate_sha256(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    format!("{:x}", hasher.finalize())
-}
-
-/// Verifies if the SHA-256 hash of bytes matches the expected hash.
-fn verify_checksum(bytes: &[u8], expected: &str) -> bool {
-    calculate_sha256(bytes) == expected
-}
-
-/// Finds an asset by name in the list of assets.
-fn find_asset<'a>(assets: &'a [serde_json::Value], name: &str) -> Option<&'a serde_json::Value> {
-    assets.iter().find(|a| a["name"] == name)
-}
-
-/// Fetches the latest release information from GitHub API.
-async fn fetch_release(
-    client: &Client,
-    base_url: &str,
-) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-    let release_url = format!("{}/repos/sst/opencode/releases/latest", base_url);
-    let response = client.get(release_url).send().await?;
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await?;
-        eprintln!("HTTP error: {} {}", status, body);
-        return Err("HTTP error".into());
-    }
-    let release: serde_json::Value = response.json().await?;
-    Ok(release)
-}
 
 /// Main entry point: Fetches the latest opencode release, downloads the binary,
 /// extracts it, and installs it to /usr/bin/opencode.
@@ -150,38 +116,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Success: Print confirmation message.
     println!("Updated opencode to latest version.");
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_calculate_sha256() {
-        let data = b"hello world";
-        let expected = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
-        assert_eq!(calculate_sha256(data), expected);
-    }
-
-    #[test]
-    fn test_verify_checksum() {
-        let data = b"test data";
-        let hash = calculate_sha256(data);
-        assert!(verify_checksum(data, &hash));
-        assert!(!verify_checksum(data, "invalid_hash"));
-    }
-
-    #[test]
-    fn test_find_asset() {
-        let assets = vec![
-            serde_json::json!({"name": "opencode-linux-x64.zip", "browser_download_url": "url1"}),
-            serde_json::json!({"name": "other.zip", "browser_download_url": "url2"}),
-        ];
-        let found = find_asset(&assets, "opencode-linux-x64.zip");
-        assert!(found.is_some());
-        assert_eq!(found.unwrap()["browser_download_url"], "url1");
-
-        let not_found = find_asset(&assets, "missing.zip");
-        assert!(not_found.is_none());
-    }
 }
