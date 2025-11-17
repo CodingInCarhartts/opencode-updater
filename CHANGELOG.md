@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Issue and PR templates in `.github/` for standardized bug reports, feature requests, and pull requests
+
+### Changed
+- Enhanced README.md with badges (CI, license, Rust version, project version), table of contents, and updated contributing link
+- Updated .gitignore for better file exclusions
+
+### Fixed
+- Multiple updates to GitHub Actions CI workflow for improved reliability
+- Code formatting with `rustfmt`
+
 ## [0.1.0] - 2025-11-16
 
 ### Added
