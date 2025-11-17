@@ -3,6 +3,9 @@ name = "opencode-updater"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
+description = "A CLI tool for updating opencode installations"
+keywords = ["opencode", "updater", "cli", "automation"]
+repository = "https://github.com/CodingInCarhartts/opencode-updater"
 
 [dependencies]
 reqwest = { version = "0.12", features = ["json"] }
