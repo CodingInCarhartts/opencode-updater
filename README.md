@@ -51,7 +51,8 @@ Updated opencode to latest version.
 
 - This tool downloads and installs binaries directly. Always verify the source (GitHub releases) and consider the risks of running unverified executables.
 - Requires `sudo` for system-wide installation—use at your own risk.
-- No integrity checks (e.g., checksums) are performed; this is a simple updater.
+- Performs SHA-256 checksum verification against GitHub release checksums when available.
+- Checksums provide integrity protection but not authenticity; still trust GitHub as the source.
 
 ## Dependencies
 
@@ -60,6 +61,7 @@ Updated opencode to latest version.
 - `zip` (for extracting archives).
 - `serde_json` (for parsing GitHub API responses).
 - `tempfile` (for temporary directories).
+- `sha2` (for SHA-256 checksum verification).
 
 ## Contributing
 

@@ -2,8 +2,10 @@
 // Purpose: The AUR package on Arch Linux updates slowly, and opencode's built-in upgrade
 // command was unreliable. This tool fetches and installs the latest Linux x64 binary directly.
 // Security Note: This downloads and installs executables with sudo—verify the GitHub source.
+// Integrity: Performs SHA-256 checksum verification against GitHub release checksums.
 
 use reqwest::Client;
+use sha2::{Digest, Sha256};
 use std::io::Cursor;
 use std::process::Command;
 use zip::ZipArchive;
@@ -28,15 +30,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse the JSON response into a serde Value for easy access.
     let release: serde_json::Value = response.json().await?;
 
-    // Step 2: Locate the 'opencode-linux-x64.zip' asset in the release.
+    // Step 2: Locate the 'opencode-linux-x64.zip' asset and its checksum in the release.
     // Assumes the asset exists and is named exactly this; panics if not found.
     let assets = release["assets"].as_array().unwrap();
     let asset = assets.iter().find(|a| a["name"] == "opencode-linux-x64.zip").unwrap();
     let download_url = asset["browser_download_url"].as_str().unwrap();
+    
+    // Step 2.1: Locate the checksum file for the ZIP asset.
+    // Looks for 'opencode-linux-x64.zip.sha256' in the release assets.
+    let checksum_asset = assets.iter().find(|a| a["name"] == "opencode-linux-x64.zip.sha256");
+    let expected_checksum = match checksum_asset {
+        Some(asset) => {
+            let checksum_url = asset["browser_download_url"].as_str().unwrap();
+            let checksum_response = client.get(checksum_url).send().await?;
+            if !checksum_response.status().is_success() {
+                eprintln!("Warning: Failed to download checksum file, proceeding without verification");
+                None
+            } else {
+                let checksum_text = checksum_response.text().await?;
+                Some(checksum_text.trim().to_string())
+            }
+        }
+        None => {
+            eprintln!("Warning: No checksum file found in release, proceeding without verification");
+            None
+        }
+    };
 
     // Step 3: Download the ZIP file containing the binary.
     let zip_response = client.get(download_url).send().await?;
     let zip_bytes = zip_response.bytes().await?;
+    
+    // Step 3.1: Verify checksum if available.
+    // Computes SHA-256 of downloaded ZIP and compares against expected checksum.
+    if let Some(expected) = expected_checksum {
+        let mut hasher = Sha256::new();
+        hasher.update(&zip_bytes);
+        let computed_hash = format!("{:x}", hasher.finalize());
+        
+        if computed_hash != expected {
+            return Err(format!("Checksum mismatch: expected {}, got {}", expected, computed_hash).into());
+        }
+        println!("Checksum verification passed.");
+    } else {
+        println!("Warning: No checksum verification performed.");
+    }
+    
     let cursor = Cursor::new(zip_bytes);
 
     // Step 4: Extract ZIP to a temporary directory.
