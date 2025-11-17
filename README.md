@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/CodingInCarhartts/opencode-updater/workflows/CI/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)
+![Rust](https://img.shields.io/badge/rust-1.85%2B-orange)
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 
 A simple Rust utility to update the `opencode` binary to the latest version from GitHub releases. This tool was created because the AUR package on Arch Linux didn't update quickly enough, and the built-in upgrade command in `opencode` wasn't working reliably.
@@ -24,6 +24,7 @@ A simple Rust utility to update the `opencode` binary to the latest version from
 - Downloads the latest `opencode` binary (Linux x64) from the official GitHub releases.
 - Extracts and installs it to `/usr/bin/opencode` using `sudo`.
 - Ensures the binary is executable.
+- Supports interactive selection of binaries via the `--bin` flag.
 - Provides a faster alternative to waiting for AUR updates or relying on broken upgrade commands.
 
 ## Prerequisites
@@ -66,6 +67,8 @@ Simply run the binary. It will:
 - Move it to `/usr/bin/opencode` (requires `sudo`).
 - Make it executable.
 
+Use the `--bin` flag for interactive selection of available binaries from the release.
+
 Example output:
 ```
 Updated opencode to latest version.
@@ -80,8 +83,9 @@ Updated opencode to latest version.
 
 ## Dependencies
 
-- `reqwest` (for HTTP requests).
-- `tokio` (for async runtime).
+- `ureq` (for HTTP requests).
+- `clap` (for command-line argument parsing).
+- `dialoguer` (for interactive prompts).
 - `zip` (for extracting archives).
 - `serde_json` (for parsing GitHub API responses).
 - `tempfile` (for temporary directories).
