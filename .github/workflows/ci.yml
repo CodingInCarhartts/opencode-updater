@@ -16,6 +16,7 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.PAT }}
+          persist-credentials: true
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo fmt --check
       - name: Auto-format code
