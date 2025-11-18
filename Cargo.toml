@@ -11,11 +11,15 @@ repository = "https://github.com/CodingInCarhartts/opencode-updater"
 ureq = { version = "2.0", features = ["json"] }
 zip = "6.0"
 serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
 tempfile = "3.10"
 sha2 = "0.10"
 clap = { version = "4.0", features = ["derive"] }
 dialoguer = "0.12"
 indicatif = "0.17"
+chrono = { version = "0.4", features = ["serde"] }
+semver = "1.0"
+dirs = "5.0"
 
 [dev-dependencies]
 mockito = "1.2"
