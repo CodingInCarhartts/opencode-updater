@@ -1,5 +1,6 @@
 use opencode_updater::{
-    Args, calculate_sha256, find_asset, find_executable_binary, run_update, verify_checksum, download_with_progress,
+    Args, calculate_sha256, download_with_progress, find_asset, find_executable_binary, run_update,
+    verify_checksum,
 };
 use std::io::Cursor;
 
@@ -154,11 +155,11 @@ fn test_download_with_progress() {
     // Create test data
     let test_data = b"Hello, World! This is test data for download progress.";
     let data_size = test_data.len() as u64;
-    
+
     // Start mock server
     let mut server = mockito::Server::new();
     let url = server.url();
-    
+
     // Mock the download endpoint with content-length header
     let download_mock = server
         .mock("GET", "/test-download")
@@ -166,16 +167,16 @@ fn test_download_with_progress() {
         .with_header("content-length", &data_size.to_string())
         .with_body(test_data)
         .create();
-    
+
     // Test the download function
     let client = ureq::Agent::new();
     let download_url = format!("{}/test-download", url);
     let result = download_with_progress(&client, &download_url, "test-file.txt");
-    
+
     assert!(result.is_ok());
     let downloaded_data = result.unwrap();
     assert_eq!(downloaded_data, test_data);
-    
+
     // Verify mock was called
     download_mock.assert();
 }
@@ -184,27 +185,27 @@ fn test_download_with_progress() {
 #[test]
 fn test_download_with_progress_no_content_length() {
     let test_data = b"Test data without content-length header";
-    
+
     // Start mock server
     let mut server = mockito::Server::new();
     let url = server.url();
-    
+
     // Mock the download endpoint without content-length header
     let download_mock = server
         .mock("GET", "/test-download-no-length")
         .with_status(200)
         .with_body(test_data)
         .create();
-    
+
     // Test the download function
     let client = ureq::Agent::new();
     let download_url = format!("{}/test-download-no-length", url);
     let result = download_with_progress(&client, &download_url, "test-file-no-length.txt");
-    
+
     assert!(result.is_ok());
     let downloaded_data = result.unwrap();
     assert_eq!(downloaded_data, test_data);
-    
+
     // Verify mock was called
     download_mock.assert();
 }

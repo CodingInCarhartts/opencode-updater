@@ -21,22 +21,22 @@ pub fn verify_checksum(bytes: &[u8], expected: &str) -> bool {
 }
 
 /// Downloads a file with real-time progress display.
-/// 
+///
 /// This function downloads a file from the given URL while displaying a progress bar
 /// that shows the download progress, speed, and estimated time remaining.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `client` - The HTTP client to use for the request
 /// * `url` - The URL to download from
 /// * `filename` - The filename to display in the progress bar
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a `Vec<u8>` containing the downloaded file data.
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns an error if the HTTP request fails or if there's an I/O error during download.
 pub fn download_with_progress(
     client: &Agent,
@@ -45,12 +45,13 @@ pub fn download_with_progress(
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     // Make the request to get headers first
     let response = client.get(url).call()?;
-    
+
     // Get content length for progress bar
-    let content_length = response.header("Content-Length")
+    let content_length = response
+        .header("Content-Length")
         .and_then(|len| len.parse::<u64>().ok())
         .unwrap_or(0);
-    
+
     // Create progress bar
     let progress = ProgressBar::new(content_length);
     progress.set_style(
@@ -60,22 +61,22 @@ pub fn download_with_progress(
             .progress_chars("#>-")
     );
     progress.set_message(format!("Downloading {}", filename));
-    
+
     // Start the download with progress tracking
     let mut reader = response.into_reader();
     let mut buffer = Vec::new();
     let mut chunk = [0; 8192]; // 8KB chunks
-    
+
     loop {
         let bytes_read = reader.read(&mut chunk)?;
         if bytes_read == 0 {
             break;
         }
-        
+
         buffer.extend_from_slice(&chunk[..bytes_read]);
         progress.inc(bytes_read as u64);
     }
-    
+
     progress.finish_with_message(format!("Downloaded {}", filename));
     Ok(buffer)
 }
