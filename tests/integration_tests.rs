@@ -1,6 +1,6 @@
 use opencode_updater::{
-    Args, calculate_sha256, download_with_progress, find_asset, find_executable_binary, run_update,
-    verify_checksum, VersionManager, parse_version, compare_versions,
+    Args, VersionManager, calculate_sha256, compare_versions, download_with_progress, find_asset,
+    find_executable_binary, parse_version, run_update, verify_checksum,
 };
 use std::io::Cursor;
 use std::path::PathBuf;
@@ -243,7 +243,7 @@ fn test_compare_versions() {
 fn test_version_manager_new() {
     let vm = VersionManager::new();
     assert!(vm.is_ok());
-    
+
     let vm = vm.unwrap();
     assert!(vm.storage_dir().exists());
     assert!(vm.versions_dir().exists());
@@ -255,7 +255,7 @@ fn test_version_manager_new() {
 fn test_list_installed_versions_empty() {
     let vm = VersionManager::new().unwrap();
     let versions = vm.list_installed_versions().unwrap();
-    
+
     // Note: This test may fail if versions exist from previous runs
     // In that case, we verify the method works correctly
     if !versions.is_empty() {
@@ -275,12 +275,12 @@ fn test_list_installed_versions_empty() {
 fn test_get_current_version_none() {
     let vm = VersionManager::new().unwrap();
     let current = vm.get_current_version().unwrap();
-    
+
     // Note: This test may fail if opencode is system-installed
     // In that case, the detection logic will correctly find the system version
     // We'll just verify the method doesn't panic and returns a valid result
     match current {
-        None => {}, // Expected case
+        None => {} // Expected case
         Some(version) => {
             // If system binary exists, verify it detected a valid version
             assert!(!version.version.is_empty());

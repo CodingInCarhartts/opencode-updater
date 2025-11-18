@@ -31,7 +31,11 @@ impl std::fmt::Display for UpdaterError {
             UpdaterError::StorageError(e) => write!(f, "Storage error: {}", e),
             UpdaterError::PermissionError(e) => write!(f, "Permission error: {}", e),
             UpdaterError::ChecksumMismatch(expected, actual) => {
-                write!(f, "Checksum mismatch: expected {}, got {}", expected, actual)
+                write!(
+                    f,
+                    "Checksum mismatch: expected {}, got {}",
+                    expected, actual
+                )
             }
             UpdaterError::InvalidVersionFormat(v) => write!(f, "Invalid version format: {}", v),
             UpdaterError::RollbackFailed(e) => write!(f, "Rollback failed: {}", e),
@@ -68,48 +72,48 @@ impl VersionManager {
         let data_dir = dirs::data_dir()
             .ok_or("Could not find data directory")?
             .join("opencode-updater");
-        
+
         let versions_dir = data_dir.join("versions");
         let cache_dir = data_dir.join("cache");
-        
+
         // Create directories if they don't exist
         std::fs::create_dir_all(&versions_dir)?;
         std::fs::create_dir_all(&cache_dir)?;
-        
+
         Ok(Self {
             storage_dir: data_dir,
             versions_dir,
             cache_dir,
         })
     }
-    
+
     /// Get storage directory path
     pub fn storage_dir(&self) -> &Path {
         &self.storage_dir
     }
-    
+
     /// Get versions directory path
     pub fn versions_dir(&self) -> &Path {
         &self.versions_dir
     }
-    
+
     /// Get cache directory path
     pub fn cache_dir(&self) -> &Path {
         &self.cache_dir
     }
-    
+
     /// Get list of installed versions
     pub fn list_installed_versions(&self) -> Result<Vec<VersionInfo>, Box<dyn std::error::Error>> {
         let mut versions = Vec::new();
-        
+
         if !self.versions_dir.exists() {
             return Ok(versions);
         }
-        
+
         for entry in std::fs::read_dir(&self.versions_dir)? {
             let entry = entry?;
             let path = entry.path();
-            
+
             if path.is_dir() {
                 let metadata_file = path.join("metadata.json");
                 if metadata_file.exists() {
@@ -119,28 +123,28 @@ impl VersionManager {
                 }
             }
         }
-        
+
         // Sort by installation date (newest first)
         versions.sort_by(|a, b| b.installed_at.cmp(&a.installed_at));
         Ok(versions)
     }
-    
+
     /// Get current active version
     pub fn get_current_version(&self) -> Result<Option<VersionInfo>, Box<dyn std::error::Error>> {
         // First check if we have a local storage symlink
         let current_link = self.storage_dir.join("current");
-        
+
         if current_link.exists() {
             let target = std::fs::read_link(&current_link)?;
             let metadata_file = target.join("metadata.json");
-            
+
             if metadata_file.exists() {
                 let content = std::fs::read_to_string(metadata_file)?;
                 let version_info: VersionInfo = serde_json::from_str(&content)?;
                 return Ok(Some(version_info));
             }
         }
-        
+
         // Fallback: Check if system binary exists and try to detect its version
         let system_binary = Path::new("/usr/bin/opencode");
         if system_binary.exists() {
@@ -149,22 +153,19 @@ impl VersionManager {
                 return Ok(Some(version_info));
             }
         }
-        
+
         Ok(None)
     }
-    
+
     /// Detect version of system-installed binary
     fn detect_system_version(&self) -> Result<Option<VersionInfo>, Box<dyn std::error::Error>> {
-        let output = Command::new("opencode")
-            .arg("--version")
-            .output()
-            .ok();
-        
+        let output = Command::new("opencode").arg("--version").output().ok();
+
         if let Some(output) = output {
             if output.status.success() {
                 let version_str = String::from_utf8_lossy(&output.stdout);
                 let version = version_str.trim().trim_start_matches('v');
-                
+
                 // Create version info for detected system binary
                 let version_info = VersionInfo {
                     version: version.to_string(),
@@ -174,119 +175,129 @@ impl VersionManager {
                     checksum: String::new(),
                     installed_at: Utc::now(), // Unknown, use current time
                     install_path: PathBuf::from("/usr/bin/opencode"),
-                    release_notes: "Currently installed version (release notes unknown)".to_string(),
+                    release_notes: "Currently installed version (release notes unknown)"
+                        .to_string(),
                 };
-                
+
                 return Ok(Some(version_info));
             }
         }
-        
+
         Ok(None)
     }
-    
+
     /// Save version with metadata
-    pub fn save_version(&self, version: &VersionInfo, binary_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save_version(
+        &self,
+        version: &VersionInfo,
+        binary_path: &Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let version_dir = self.versions_dir.join(&version.version);
         std::fs::create_dir_all(&version_dir)?;
-        
+
         // Copy binary to version directory
         let version_binary = version_dir.join("opencode");
         std::fs::copy(binary_path, &version_binary)?;
-        
+
         // Make it executable
         let mut perms = std::fs::metadata(&version_binary)?.permissions();
         perms.set_mode(0o755);
         std::fs::set_permissions(&version_binary, perms)?;
-        
+
         // Save metadata
         let metadata_file = version_dir.join("metadata.json");
         let metadata_json = serde_json::to_string_pretty(version)?;
         std::fs::write(metadata_file, metadata_json)?;
-        
+
         Ok(())
     }
-    
+
     /// Rollback to specific version
     pub fn rollback_to(&self, version: &str) -> Result<(), Box<dyn std::error::Error>> {
         let version_dir = self.versions_dir.join(version);
         let version_binary = version_dir.join("opencode");
         let metadata_file = version_dir.join("metadata.json");
-        
+
         if !version_binary.exists() {
             return Err(UpdaterError::VersionNotFound(version.to_string()).into());
         }
-        
+
         // Read metadata to verify
-        let _version_info: VersionInfo = serde_json::from_str(&std::fs::read_to_string(metadata_file)?)?;
-        
+        let _version_info: VersionInfo =
+            serde_json::from_str(&std::fs::read_to_string(metadata_file)?)?;
+
         // Install the binary to system location
         Command::new("sudo")
             .arg("cp")
             .arg(&version_binary)
             .arg("/usr/bin/opencode")
             .status()?;
-        
+
         // Ensure executable permissions
         Command::new("sudo")
             .arg("chmod")
             .arg("+x")
             .arg("/usr/bin/opencode")
             .status()?;
-        
+
         // Update current symlink
         let current_link = self.storage_dir.join("current");
         if current_link.exists() {
             std::fs::remove_file(&current_link)?;
         }
         std::os::unix::fs::symlink(&version_dir, &current_link)?;
-        
+
         println!("Successfully rolled back to version {}", version);
         Ok(())
     }
-    
+
     /// Clean up old versions (keep only N most recent, default: 2)
-    pub fn cleanup_old_versions(&self, keep_count: usize) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn cleanup_old_versions(
+        &self,
+        keep_count: usize,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut versions = self.list_installed_versions()?;
-        
+
         if versions.len() <= keep_count {
             return Ok(());
         }
-        
+
         // Remove versions beyond keep_count (excluding current version)
         let current_version = self.get_current_version()?;
         versions.retain(|v| {
-            current_version.as_ref().map_or(true, |curr| curr.version != v.version)
+            current_version
+                .as_ref()
+                .map_or(true, |curr| curr.version != v.version)
         });
-        
+
         versions.sort_by(|a, b| b.installed_at.cmp(&a.installed_at));
-        
+
         for version in versions.iter().skip(keep_count) {
             let version_dir = self.versions_dir.join(&version.version);
             std::fs::remove_dir_all(&version_dir)?;
             println!("Removed old version: {}", version.version);
         }
-        
+
         Ok(())
     }
-    
+
     /// Backup current version before updating
-    pub fn backup_current_version(&self) -> Result<Option<VersionInfo>, Box<dyn std::error::Error>> {
+    pub fn backup_current_version(
+        &self,
+    ) -> Result<Option<VersionInfo>, Box<dyn std::error::Error>> {
         // Check if current binary exists
         if !Path::new("/usr/bin/opencode").exists() {
             return Ok(None);
         }
-        
+
         // Try to get version info from running binary
-        let output = Command::new("opencode")
-            .arg("--version")
-            .output()
-            .ok();
-        
+        let output = Command::new("opencode").arg("--version").output().ok();
+
         if let Some(output) = output {
             if output.status.success() {
                 let version_str = String::from_utf8_lossy(&output.stdout);
                 let version = version_str.trim().trim_start_matches('v');
-                
+
                 // Create version info
                 let version_info = VersionInfo {
                     version: version.to_string(),
@@ -298,15 +309,15 @@ impl VersionManager {
                     install_path: PathBuf::from("/usr/bin/opencode"),
                     release_notes: "Current installation".to_string(),
                 };
-                
+
                 // Save current binary
                 let current_binary = Path::new("/usr/bin/opencode");
                 self.save_version(&version_info, current_binary)?;
-                
+
                 return Ok(Some(version_info));
             }
         }
-        
+
         Ok(None)
     }
 }
@@ -445,17 +456,21 @@ pub fn fetch_release_by_tag(
 }
 
 /// Format release notes for display.
-pub fn format_release_notes(release: &serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
+pub fn format_release_notes(
+    release: &serde_json::Value,
+) -> Result<String, Box<dyn std::error::Error>> {
     let tag_name = release["tag_name"].as_str().unwrap_or("Unknown");
     let name = release["name"].as_str().unwrap_or(tag_name);
     let published_at = release["published_at"].as_str().unwrap_or("Unknown date");
-    let body = release["body"].as_str().unwrap_or("No release notes available.");
-    
+    let body = release["body"]
+        .as_str()
+        .unwrap_or("No release notes available.");
+
     let formatted = format!(
         "📦 Release: {} ({})\n📅 Published: {}\n\n{}",
         name, tag_name, published_at, body
     );
-    
+
     Ok(formatted)
 }
 
@@ -471,20 +486,22 @@ pub fn cache_releases(
 }
 
 /// Load cached releases if available and recent (< 1 hour).
-pub fn load_cached_releases(cache_dir: &Path) -> Result<Option<Vec<serde_json::Value>>, Box<dyn std::error::Error>> {
+pub fn load_cached_releases(
+    cache_dir: &Path,
+) -> Result<Option<Vec<serde_json::Value>>, Box<dyn std::error::Error>> {
     let cache_file = cache_dir.join("releases.json");
     if !cache_file.exists() {
         return Ok(None);
     }
-    
+
     let metadata = std::fs::metadata(&cache_file)?;
     let modified = metadata.modified()?;
     let age = std::time::SystemTime::now().duration_since(modified)?;
-    
+
     if age > std::time::Duration::from_secs(3600) {
         return Ok(None); // Cache expired
     }
-    
+
     let content = std::fs::read_to_string(cache_file)?;
     let releases: Vec<serde_json::Value> = serde_json::from_str(&content)?;
     Ok(Some(releases))
@@ -494,15 +511,15 @@ pub fn load_cached_releases(cache_dir: &Path) -> Result<Option<Vec<serde_json::V
 pub fn parse_version(version: &str) -> Result<(u64, u64, u64), Box<dyn std::error::Error>> {
     let clean = version.trim_start_matches('v');
     let parts: Vec<&str> = clean.split('.').collect();
-    
+
     if parts.len() != 3 {
         return Err("Invalid version format".into());
     }
-    
+
     let major = parts[0].parse()?;
     let minor = parts[1].parse()?;
     let patch = parts[2].parse()?;
-    
+
     Ok((major, minor, patch))
 }
 
@@ -510,7 +527,7 @@ pub fn parse_version(version: &str) -> Result<(u64, u64, u64), Box<dyn std::erro
 pub fn compare_versions(v1: &str, v2: &str) -> Result<i8, Box<dyn std::error::Error>> {
     let (major1, minor1, patch1) = parse_version(v1)?;
     let (major2, minor2, patch2) = parse_version(v2)?;
-    
+
     if major1 != major2 {
         return Ok(major1.cmp(&major2) as i8);
     }
@@ -529,17 +546,23 @@ pub fn display_version_comparison(
     let to_tag = to_release["tag_name"].as_str().unwrap_or("Unknown");
     let from_date = from_release["published_at"].as_str().unwrap_or("Unknown");
     let to_date = to_release["published_at"].as_str().unwrap_or("Unknown");
-    
+
     let comparison = format!(
         "🔄 Version Comparison\n\n\
          📦 From: {} (published: {})\n\
          📦 To: {} (published: {})\n\n\
          📝 Changes in {}:\n\
          {}",
-        from_tag, from_date, to_tag, to_date, to_tag,
-        to_release["body"].as_str().unwrap_or("No release notes available.")
+        from_tag,
+        from_date,
+        to_tag,
+        to_date,
+        to_tag,
+        to_release["body"]
+            .as_str()
+            .unwrap_or("No release notes available.")
     );
-    
+
     Ok(comparison)
 }
 
@@ -567,27 +590,27 @@ pub struct Args {
     /// Enable interactive binary selection instead of using the default asset.
     #[arg(long)]
     pub bin: bool,
-    
+
     /// Rollback to a previous version
     #[arg(long, value_name = "VERSION")]
     pub rollback: Option<String>,
-    
+
     /// List all installed and available versions
     #[arg(long)]
     pub list_versions: bool,
-    
+
     /// Show changelog for a specific version (or latest if not specified)
     #[arg(long, value_name = "VERSION")]
     pub changelog: Option<String>,
-    
+
     /// Compare two versions to see differences
     #[arg(long, value_names = ["FROM", "TO"])]
     pub compare: Option<Vec<String>>,
-    
+
     /// Maximum number of versions to keep locally (default: 2)
     #[arg(long, default_value = "2")]
     pub keep_versions: usize,
-    
+
     /// Force update even if already on latest version
     #[arg(long)]
     pub force: bool,
@@ -606,14 +629,14 @@ pub fn run_update(
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Initialize version manager
     let version_manager = VersionManager::new()?;
-    
+
     // Backup current version before updating
     if !skip_install {
         if let Some(backup_info) = version_manager.backup_current_version()? {
             println!("Backed up current version: {}", backup_info.version);
         }
     }
-    
+
     let release = fetch_release(client, base_url)?;
 
     // Step 2: Select the asset to download.
@@ -703,11 +726,12 @@ pub fn run_update(
         // Create version info for the new version
         let version = release["tag_name"].as_str().unwrap_or("unknown");
         let version_clean = version.trim_start_matches('v');
-        
+
         let version_info = VersionInfo {
             version: version_clean.to_string(),
             tag_name: version.to_string(),
-            release_date: release["published_at"].as_str()
+            release_date: release["published_at"]
+                .as_str()
                 .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(Utc::now),
@@ -715,12 +739,15 @@ pub fn run_update(
             checksum: expected_checksum.unwrap_or_default(),
             installed_at: Utc::now(),
             install_path: PathBuf::from("/usr/bin/opencode"),
-            release_notes: release["body"].as_str().unwrap_or("No release notes available.").to_string(),
+            release_notes: release["body"]
+                .as_str()
+                .unwrap_or("No release notes available.")
+                .to_string(),
         };
-        
+
         // Save the new version to storage
         version_manager.save_version(&version_info, &binary_path)?;
-        
+
         // Step 6: Install the binary to /usr/bin/opencode (system-wide).
         Command::new("sudo")
             .arg("mv")
