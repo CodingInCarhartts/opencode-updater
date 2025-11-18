@@ -161,26 +161,26 @@ impl VersionManager {
     fn detect_system_version(&self) -> Result<Option<VersionInfo>, Box<dyn std::error::Error>> {
         let output = Command::new("opencode").arg("--version").output().ok();
 
-        if let Some(output) = output {
-            if output.status.success() {
-                let version_str = String::from_utf8_lossy(&output.stdout);
-                let version = version_str.trim().trim_start_matches('v');
+        if let Some(output) = output
+            && output.status.success()
+        {
+            let version_str = String::from_utf8_lossy(&output.stdout);
+            let version = version_str.trim().trim_start_matches('v');
 
-                // Create version info for detected system binary
-                let version_info = VersionInfo {
-                    version: version.to_string(),
-                    tag_name: format!("v{}", version),
-                    release_date: Utc::now(), // Unknown, use current time
-                    download_url: String::new(),
-                    checksum: String::new(),
-                    installed_at: Utc::now(), // Unknown, use current time
-                    install_path: PathBuf::from("/usr/bin/opencode"),
-                    release_notes: "Currently installed version (release notes unknown)"
-                        .to_string(),
-                };
+            // Create version info for detected system binary
+            let version_info = VersionInfo {
+                version: version.to_string(),
+                tag_name: format!("v{}", version),
+                release_date: Utc::now(), // Unknown, use current time
+                download_url: String::new(),
+                checksum: String::new(),
+                installed_at: Utc::now(), // Unknown, use current time
+                install_path: PathBuf::from("/usr/bin/opencode"),
+                release_notes: "Currently installed version (release notes unknown)".to_string(),
+            };
 
-                return Ok(Some(version_info));
-            }
+            return Ok(Some(version_info));
+        }
         }
 
         Ok(None)
@@ -267,7 +267,7 @@ impl VersionManager {
         versions.retain(|v| {
             current_version
                 .as_ref()
-                .map_or(true, |curr| curr.version != v.version)
+            current_version.as_ref().is_none_or(|curr| curr.version != v.version)
         });
 
         versions.sort_by(|a, b| b.installed_at.cmp(&a.installed_at));
@@ -293,29 +293,30 @@ impl VersionManager {
         // Try to get version info from running binary
         let output = Command::new("opencode").arg("--version").output().ok();
 
-        if let Some(output) = output {
-            if output.status.success() {
-                let version_str = String::from_utf8_lossy(&output.stdout);
-                let version = version_str.trim().trim_start_matches('v');
+        if let Some(output) = output
+            && output.status.success()
+        {
+            let version_str = String::from_utf8_lossy(&output.stdout);
+            let version = version_str.trim().trim_start_matches('v');
 
-                // Create version info
-                let version_info = VersionInfo {
-                    version: version.to_string(),
-                    tag_name: format!("v{}", version),
-                    release_date: Utc::now(),
-                    download_url: String::new(),
-                    checksum: String::new(),
-                    installed_at: Utc::now(),
-                    install_path: PathBuf::from("/usr/bin/opencode"),
-                    release_notes: "Current installation".to_string(),
-                };
+            // Create version info
+            let version_info = VersionInfo {
+                version: version.to_string(),
+                tag_name: format!("v{}", version),
+                release_date: Utc::now(),
+                download_url: String::new(),
+                checksum: String::new(),
+                installed_at: Utc::now(),
+                install_path: PathBuf::from("/usr/bin/opencode"),
+                release_notes: "Current installation".to_string(),
+            };
 
-                // Save current binary
-                let current_binary = Path::new("/usr/bin/opencode");
-                self.save_version(&version_info, current_binary)?;
+            // Save current binary
+            let current_binary = Path::new("/usr/bin/opencode");
+            self.save_version(&version_info, current_binary)?;
 
-                return Ok(Some(version_info));
-            }
+            return Ok(Some(version_info));
+        }
         }
 
         Ok(None)
@@ -631,10 +632,8 @@ pub fn run_update(
     let version_manager = VersionManager::new()?;
 
     // Backup current version before updating
-    if !skip_install {
-        if let Some(backup_info) = version_manager.backup_current_version()? {
-            println!("Backed up current version: {}", backup_info.version);
-        }
+    if !skip_install && let Some(backup_info) = version_manager.backup_current_version()? {
+        println!("Backed up current version: {}", backup_info.version);
     }
 
     let release = fetch_release(client, base_url)?;

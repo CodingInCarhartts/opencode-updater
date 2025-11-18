@@ -162,7 +162,7 @@ fn format_version_list(
         for version in installed {
             let marker = if current
                 .as_ref()
-                .map_or(false, |c| c.version == version.version)
+                .is_some_and(|c| c.version == version.version)
             {
                 "→"
             } else {
