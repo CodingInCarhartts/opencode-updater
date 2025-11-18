@@ -148,7 +148,6 @@ impl VersionManager {
         // Fallback: Check if system binary exists and try to detect its version
         let system_binary = Path::new("/usr/bin/opencode");
         if system_binary.exists() {
-            // Try to get version from the binary
             if let Some(version_info) = self.detect_system_version()? {
                 return Ok(Some(version_info));
             }
@@ -180,7 +179,6 @@ impl VersionManager {
             };
 
             return Ok(Some(version_info));
-        }
         }
 
         Ok(None)
@@ -267,7 +265,7 @@ impl VersionManager {
         versions.retain(|v| {
             current_version
                 .as_ref()
-            current_version.as_ref().is_none_or(|curr| curr.version != v.version)
+                .is_none_or(|curr| curr.version != v.version)
         });
 
         versions.sort_by(|a, b| b.installed_at.cmp(&a.installed_at));
@@ -316,7 +314,6 @@ impl VersionManager {
             self.save_version(&version_info, current_binary)?;
 
             return Ok(Some(version_info));
-        }
         }
 
         Ok(None)
