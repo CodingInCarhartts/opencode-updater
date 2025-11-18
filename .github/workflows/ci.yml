@@ -1,4 +1,4 @@
-name: CI
+name: CI with Smart Format Fix
 on: [push, pull_request]
 permissions:
   contents: write
@@ -22,11 +22,21 @@ jobs:
       - name: Auto-format code
         if: failure()
         run: cargo fmt
+      - name: Get original commit message
+        if: failure()
+        id: commit_info
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            ORIGINAL_MSG=$(git log --format=%B -n 1 ${{ github.event.pull_request.head.sha }})
+          else
+            ORIGINAL_MSG=$(git log --format=%B -n 1 HEAD)
+          fi
+          echo "original_message=$ORIGINAL_MSG" >> $GITHUB_OUTPUT
       - name: Commit formatting changes
         if: failure()
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "fmt: Auto-format code"
+          commit_message: "${{ steps.commit_info.outputs.original_message }}-action-run-fmt-fix"
   test:
     runs-on: ubuntu-latest
     steps:
