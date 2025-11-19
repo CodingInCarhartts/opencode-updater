@@ -147,10 +147,10 @@ impl VersionManager {
 
         // Fallback: Check if system binary exists and try to detect its version
         let system_binary = Path::new("/usr/bin/opencode");
-        if system_binary.exists() {
-            if let Some(version_info) = self.detect_system_version()? {
-                return Ok(Some(version_info));
-            }
+        if system_binary.exists()
+            && let Some(version_info) = self.detect_system_version()?
+        {
+            return Ok(Some(version_info));
         }
 
         Ok(None)
