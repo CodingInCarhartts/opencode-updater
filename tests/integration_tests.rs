@@ -134,7 +134,7 @@ fn test_run_update() {
         .create();
 
     // Create client and args
-    let client = ureq::Agent::new();
+    let client = ureq::Agent::new_with_defaults();
     let args = Args {
         bin: false,
         rollback: None,
@@ -179,7 +179,7 @@ fn test_download_with_progress() {
         .create();
 
     // Test the download function
-    let client = ureq::Agent::new();
+    let client = ureq::Agent::new_with_defaults();
     let download_url = format!("{}/test-download", url);
     let result = download_with_progress(&client, &download_url, "test-file.txt");
 
@@ -208,7 +208,7 @@ fn test_download_with_progress_no_content_length() {
         .create();
 
     // Test the download function
-    let client = ureq::Agent::new();
+    let client = ureq::Agent::new_with_defaults();
     let download_url = format!("{}/test-download-no-length", url);
     let result = download_with_progress(&client, &download_url, "test-file-no-length.txt");
 
@@ -415,7 +415,7 @@ fn test_fallback_to_tar_gz() {
         .create();
 
     // Create client and args
-    let client = ureq::Agent::new();
+    let client = ureq::Agent::new_with_defaults();
     let args = Args {
         bin: false,
         rollback: None,

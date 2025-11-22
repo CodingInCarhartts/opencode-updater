@@ -362,7 +362,9 @@ pub fn download_with_progress(
 
     // Get content length for progress bar
     let content_length = response
-        .header("Content-Length")
+        .headers()
+        .get("Content-Length")
+        .and_then(|len| len.to_str().ok())
         .and_then(|len| len.parse::<u64>().ok())
         .unwrap_or(0);
 
@@ -377,7 +379,7 @@ pub fn download_with_progress(
     progress.set_message(format!("Downloading {}", filename));
 
     // Start the download with progress tracking
-    let mut reader = response.into_reader();
+    let mut reader = response.into_body().into_reader();
     let mut buffer = Vec::new();
     let mut chunk = [0; 8192]; // 8KB chunks
 
@@ -410,13 +412,14 @@ pub fn fetch_release(
 ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     let release_url = format!("{}/repos/sst/opencode/releases/latest", base_url);
     let response = client.get(&release_url).call()?;
-    if !response.status() == 200 {
+    if response.status() != 200 {
         let status = response.status();
-        let body = response.into_string()?;
+        let body = response.into_body().read_to_string()?;
         eprintln!("HTTP error: {} {}", status, body);
         return Err("HTTP error".into());
     }
-    let release: serde_json::Value = response.into_json()?;
+    let body = response.into_body().read_to_string()?;
+    let release: serde_json::Value = serde_json::from_str(&body)?;
     Ok(release)
 }
 
@@ -427,13 +430,14 @@ pub fn fetch_all_releases(
 ) -> Result<Vec<serde_json::Value>, Box<dyn std::error::Error>> {
     let releases_url = format!("{}/repos/sst/opencode/releases", base_url);
     let response = client.get(&releases_url).call()?;
-    if !response.status() == 200 {
+    if response.status() != 200 {
         let status = response.status();
-        let body = response.into_string()?;
+        let body = response.into_body().read_to_string()?;
         eprintln!("HTTP error: {} {}", status, body);
         return Err("HTTP error".into());
     }
-    let releases: Vec<serde_json::Value> = response.into_json()?;
+    let body = response.into_body().read_to_string()?;
+    let releases: Vec<serde_json::Value> = serde_json::from_str(&body)?;
     Ok(releases)
 }
 
@@ -445,13 +449,14 @@ pub fn fetch_release_by_tag(
 ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     let release_url = format!("{}/repos/sst/opencode/releases/tags/{}", base_url, tag);
     let response = client.get(&release_url).call()?;
-    if !response.status() == 200 {
+    if response.status() != 200 {
         let status = response.status();
-        let body = response.into_string()?;
+        let body = response.into_body().read_to_string()?;
         eprintln!("HTTP error: {} {}", status, body);
         return Err("HTTP error".into());
     }
-    let release: serde_json::Value = response.into_json()?;
+    let body = response.into_body().read_to_string()?;
+    let release: serde_json::Value = serde_json::from_str(&body)?;
     Ok(release)
 }
 
@@ -718,10 +723,10 @@ pub fn run_update(
         Some(asset) => {
             let checksum_url = asset["browser_download_url"].as_str().unwrap();
             let checksum_response = client.get(checksum_url).call()?;
-            if !checksum_response.status() == 200 {
+            if checksum_response.status() != 200 {
                 None
             } else {
-                let checksum_text = checksum_response.into_string()?;
+                let checksum_text = checksum_response.into_body().read_to_string()?;
                 Some(checksum_text.trim().to_string())
             }
         }
@@ -732,15 +737,15 @@ pub fn run_update(
     let zip_bytes = download_with_progress(client, &download_url, &asset_name)?;
 
     // Step 3.1: Verify checksum if available.
-    if let Some(ref expected) = expected_checksum
-        && !verify_checksum(&zip_bytes, expected)
-    {
-        return Err(format!(
-            "Checksum mismatch: expected {}, got {}",
-            expected,
-            calculate_sha256(&zip_bytes)
-        )
-        .into());
+    if let Some(expected) = &expected_checksum {
+        if !verify_checksum(&zip_bytes, expected) {
+            return Err(format!(
+                "Checksum mismatch: expected {}, got {}",
+                expected,
+                calculate_sha256(&zip_bytes)
+            )
+            .into());
+        }
     }
 
     // Step 4: Extract the archive to a temporary directory.

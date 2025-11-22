@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let version_manager = VersionManager::new()?;
 
     // Create HTTP client
-    let client = Agent::new();
+    let client = Agent::new_with_defaults();
 
     // Handle different commands
     if let Some(version) = &args.rollback {
