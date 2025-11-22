@@ -3,7 +3,7 @@
 ![CI](https://github.com/CodingInCarhartts/opencode-updater/workflows/CI/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Rust](https://img.shields.io/badge/rust-1.85%2B-orange)
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.2.0-blue)
 
 A powerful Rust utility to update the `opencode` binary with advanced version management capabilities. This tool was created because the AUR package on Arch Linux didn't update quickly enough, and the built-in upgrade command in `opencode` wasn't working reliably.
 
@@ -31,6 +31,9 @@ A powerful Rust utility to update the `opencode` binary with advanced version ma
 - **NEW:** View release notes and compare versions.
 - **NEW:** Local caching of versions for quick operations.
 - **NEW:** Configurable version retention (default: keeps 2 most recent versions).
+- **NEW:** Real-time download progress with visual indicators and ETA.
+- **NEW:** Archive format fallback (zip → tar.gz) for maximum compatibility.
+- **NEW:** System version detection for seamless migration.
 - Provides a faster alternative to waiting for AUR updates or relying on broken upgrade commands.
 
 ## Prerequisites
@@ -70,6 +73,7 @@ Optional:
 Simply run the binary. It will:
 - Fetch the latest release info from GitHub.
 - Download the `opencode-linux-x64.zip` asset (falls back to `opencode-linux-x64.tar.gz` if zip is unavailable).
+- **NEW:** Display real-time download progress with visual bar and ETA.
 - Extract the `opencode` binary to a temporary directory.
 - Move it to `/usr/bin/opencode` (requires `sudo`).
 - Make it executable.
@@ -108,7 +112,36 @@ See what changed between two versions.
 ```bash
 opencode-updater --keep-versions 3  # Keep only 3 recent versions (default: 2)
 opencode-updater --force           # Force update even if on latest
+opencode-updater --bin             # Interactive binary selection from release assets
 ```
+
+### Advanced Features
+
+#### Real-time Progress Display
+All downloads now feature professional progress bars:
+```
+⠋ [00:03:12] [████████████████████████████████████████] 45.2MiB/45.2MiB (00s) Downloaded opencode-linux-x64.zip
+```
+- Visual progress bar with percentage
+- Real-time download speed and ETA
+- Handles both known and unknown file sizes
+
+#### Force Updates
+Sometimes you may need to force an update even when on the latest version:
+```bash
+opencode-updater --force
+```
+Use cases:
+- Reinstalling a corrupted binary
+- Testing the update process
+- Overriding version detection issues
+
+#### Interactive Binary Selection
+For releases with multiple binary options:
+```bash
+opencode-updater --bin
+```
+This presents an interactive menu to select from available binaries in the release.
 
 ### Example Output
 ```
@@ -138,6 +171,8 @@ opencode-updater --force           # Force update even if on latest
 - **Version Comparison:** Compare two versions to see what changed with `--compare <from> <to>`
 - **GitHub Integration:** Direct access to GitHub release data with local caching
 - **Offline Support:** Cached release information available when network is unavailable
+- **Progress Display:** Real-time download progress with visual indicators and ETA
+- **Archive Fallback:** Automatic fallback from zip to tar.gz format for compatibility
 
 ### Storage Location
 All version data is stored in:
@@ -154,6 +189,8 @@ All version data is stored in:
 - Requires `sudo` for system-wide installation—use at your own risk.
 - Performs SHA-256 checksum verification against GitHub release checksums when available.
 - Checksums provide integrity protection but not authenticity; still trust GitHub as the source.
+- **NEW:** Enhanced error handling with detailed error types for better security awareness.
+- **NEW:** System version detection prevents accidental overwrites of existing installations.
 
 ## Dependencies
 
@@ -176,9 +213,100 @@ All version data is stored in:
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
+### Development Workflow
+
+This project uses a modern development workflow with:
+
+- **Smart CI/CD**: Automated formatting fixes that preserve commit messages
+- **Issue Templates**: Standardized bug reports and feature requests
+- **PR Template**: Guided pull request submissions
+- **Comprehensive Testing**: Unit and integration tests with mocked dependencies
+- **Code Quality**: Automated Clippy linting and Rustfmt formatting
+
+#### Running Tests
+```bash
+cargo test                    # Run all tests
+cargo test -- --nocapture     # Run with output
+cargo test integration_tests # Run only integration tests
+```
+
+#### Code Quality Checks
+```bash
+cargo clippy -- -D warnings   # Lint with warnings as errors
+cargo fmt --check             # Check formatting
+cargo fmt                     # Auto-format code
+```
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Technical Details
+
+### VersionManager Architecture
+
+The `VersionManager` struct handles all version-related operations:
+
+```rust
+pub struct VersionManager {
+    storage_dir: PathBuf,    // ~/.local/share/opencode-updater/
+    versions_dir: PathBuf,   // ~/.local/share/opencode-updater/versions/
+    cache_dir: PathBuf,      // ~/.local/share/opencode-updater/cache/
+}
+```
+
+#### Storage Structure
+```
+~/.local/share/opencode-updater/
+├── versions/           # Stored versions with metadata
+│   ├── 1.0.73/
+│   │   ├── opencode   # Binary executable
+│   │   └── metadata.json # Version information
+│   └── 1.0.72/
+├── cache/             # GitHub API cache (1-hour TTL)
+│   └── releases.json  # Cached release data
+└── current            # Symlink to active version
+```
+
+#### VersionInfo Structure
+Each stored version includes:
+- Version string and tag name
+- Release date and installation timestamp
+- Download URL and checksum
+- Release notes and metadata
+- Installation path
+
+### Error Handling
+
+The application uses custom error types for better error reporting:
+
+```rust
+pub enum UpdaterError {
+    VersionNotFound(String),
+    NetworkError(String),
+    StorageError(String),
+    PermissionError(String),
+    ChecksumMismatch(String, String),
+    InvalidVersionFormat(String),
+    RollbackFailed(String),
+    GitHubApiError(String),
+}
+```
+
+### Archive Extraction
+
+Supports multiple archive formats with automatic fallback:
+1. **ZIP**: Primary format (`opencode-linux-x64.zip`)
+2. **TAR.GZ**: Fallback format (`opencode-linux-x64.tar.gz`)
+
+The extractor automatically detects executable files and preserves permissions.
+
+### System Integration
+
+- **Version Detection**: Automatically detects system-installed versions
+- **Symlink Management**: Maintains `current` symlink for active version
+- **Permission Handling**: Ensures binaries have executable permissions (755)
+- **Sudo Integration**: Uses system sudo for privileged operations
 
 ## Contact
 
