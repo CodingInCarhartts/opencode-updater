@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use dialoguer::{Select, theme::ColorfulTheme};
+use flate2::read::GzDecoder;
 use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -8,6 +9,7 @@ use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use tar::Archive;
 use ureq::Agent;
 
 /// Custom error types for the updater
@@ -564,6 +566,25 @@ pub fn display_version_comparison(
     Ok(comparison)
 }
 
+/// Extracts an archive (zip or tar.gz) to the given directory.
+pub fn extract_archive(archive_bytes: Vec<u8>, asset_name: &str, temp_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    if asset_name.ends_with(".zip") {
+        // Extract zip archive
+        let cursor = std::io::Cursor::new(archive_bytes);
+        let mut archive = zip::ZipArchive::new(cursor)?;
+        archive.extract(temp_dir)?;
+    } else if asset_name.ends_with(".tar.gz") {
+        // Extract tar.gz archive
+        let cursor = std::io::Cursor::new(archive_bytes);
+        let gz_decoder = GzDecoder::new(cursor);
+        let mut archive = Archive::new(gz_decoder);
+        archive.unpack(temp_dir)?;
+    } else {
+        return Err(format!("Unsupported archive format: {}", asset_name).into());
+    }
+    Ok(())
+}
+
 /// Finds the executable binary in the given directory.
 pub fn find_executable_binary(temp_dir: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     for entry in std::fs::read_dir(temp_dir)? {
@@ -669,10 +690,18 @@ pub fn run_update(
             .to_string();
         (asset_name, download_url)
     } else {
-        let asset = find_asset(assets, "opencode-linux-x64.zip")
-            .ok_or("Default asset 'opencode-linux-x64.zip' not found")?;
-        let asset_name = "opencode-linux-x64.zip".to_string();
-        let download_url = asset["browser_download_url"].as_str().unwrap().to_string();
+        // Try zip first, then fallback to tar.gz
+        let (asset_name, download_url) = if let Some(asset) = find_asset(assets, "opencode-linux-x64.zip") {
+            let asset_name = "opencode-linux-x64.zip".to_string();
+            let download_url = asset["browser_download_url"].as_str().unwrap().to_string();
+            (asset_name, download_url)
+        } else if let Some(asset) = find_asset(assets, "opencode-linux-x64.tar.gz") {
+            let asset_name = "opencode-linux-x64.tar.gz".to_string();
+            let download_url = asset["browser_download_url"].as_str().unwrap().to_string();
+            (asset_name, download_url)
+        } else {
+            return Err("Neither 'opencode-linux-x64.zip' nor 'opencode-linux-x64.tar.gz' found in release assets".into());
+        };
         (asset_name, download_url)
     };
 
@@ -708,12 +737,9 @@ pub fn run_update(
         .into());
     }
 
-    let cursor = std::io::Cursor::new(zip_bytes);
-
     // Step 4: Extract the archive to a temporary directory.
-    let mut archive = zip::ZipArchive::new(cursor)?;
     let temp_dir = tempfile::tempdir()?;
-    archive.extract(&temp_dir)?;
+    extract_archive(zip_bytes, &asset_name, temp_dir.path())?;
 
     // Step 5: Locate the executable binary within the extracted files.
     let binary_path = find_executable_binary(temp_dir.path())?;

@@ -69,7 +69,7 @@ Optional:
 ### Basic Update
 Simply run the binary. It will:
 - Fetch the latest release info from GitHub.
-- Download the `opencode-linux-x64.zip` asset.
+- Download the `opencode-linux-x64.zip` asset (falls back to `opencode-linux-x64.tar.gz` if zip is unavailable).
 - Extract the `opencode` binary to a temporary directory.
 - Move it to `/usr/bin/opencode` (requires `sudo`).
 - Make it executable.
@@ -160,7 +160,9 @@ All version data is stored in:
 - `ureq` (for HTTP requests).
 - `clap` (for command-line argument parsing).
 - `dialoguer` (for interactive prompts).
-- `zip` (for extracting archives).
+- `zip` (for extracting zip archives).
+- `tar` (for extracting tar archives).
+- `flate2` (for gzip decompression).
 - `serde_json` (for parsing GitHub API responses).
 - `serde` (for serialization/deserialization).
 - `tempfile` (for temporary directories).

@@ -1,6 +1,6 @@
 use opencode_updater::{
     Args, VersionManager, calculate_sha256, compare_versions, download_with_progress, find_asset,
-    find_executable_binary, parse_version, run_update, verify_checksum,
+    find_executable_binary, parse_version, run_update, verify_checksum, extract_archive,
 };
 use std::io::Cursor;
 use std::path::PathBuf;
@@ -287,4 +287,150 @@ fn test_get_current_version_none() {
             assert_eq!(version.install_path, PathBuf::from("/usr/bin/opencode"));
         }
     }
+}
+
+/// Test tar.gz extraction functionality
+#[test]
+fn test_extract_archive_tar_gz() {
+    use std::io::Write;
+    use std::os::unix::fs::PermissionsExt;
+    use tempfile::tempdir;
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
+    use tar::Builder;
+
+    // Create a temporary directory for extraction
+    let extract_dir = tempdir().unwrap();
+
+    // Create a tar.gz archive in memory
+    let mut tar_buffer = Vec::new();
+    {
+        let mut tar = Builder::new(&mut tar_buffer);
+        
+        // Add an executable file to the tar archive
+        let file_content = b"fake binary content for tar.gz";
+        let mut header = tar::Header::new_gnu();
+        header.set_path("opencode").unwrap();
+        header.set_size(file_content.len() as u64);
+        header.set_mode(0o755);
+        header.set_cksum();
+        tar.append(&header, file_content.as_slice()).unwrap();
+        tar.finish().unwrap();
+    }
+
+    // Compress the tar archive with gzip
+    let gz_buffer = {
+        let mut gz_encoder = GzEncoder::new(Vec::new(), Compression::default());
+        gz_encoder.write_all(&tar_buffer).unwrap();
+        gz_encoder.finish().unwrap()
+    };
+
+    // Test extraction
+    let result = extract_archive(gz_buffer, "opencode-linux-x64.tar.gz", extract_dir.path());
+    assert!(result.is_ok());
+
+    // Verify the extracted file exists and is executable
+    let extracted_file = extract_dir.path().join("opencode");
+    assert!(extracted_file.exists());
+    
+    let metadata = std::fs::metadata(&extracted_file).unwrap();
+    assert!(metadata.permissions().mode() & 0o111 != 0); // Check executable bit
+
+    // Verify file content
+    let content = std::fs::read_to_string(&extracted_file).unwrap();
+    assert_eq!(content, "fake binary content for tar.gz");
+}
+
+/// Test fallback behavior when zip is unavailable but tar.gz is available
+#[test]
+fn test_fallback_to_tar_gz() {
+    use std::io::Write;
+    use tar::Builder;
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
+
+    // Create a mock tar.gz with a file
+    let mut tar_buffer = Vec::new();
+    {
+        let mut tar = Builder::new(&mut tar_buffer);
+        
+        let file_content = b"fake binary content for fallback test";
+        let mut header = tar::Header::new_gnu();
+        header.set_path("opencode").unwrap();
+        header.set_size(file_content.len() as u64);
+        header.set_mode(0o755);
+        header.set_cksum();
+        tar.append(&header, file_content.as_slice()).unwrap();
+        tar.finish().unwrap();
+    }
+
+    let gz_buffer = {
+        let mut gz_encoder = GzEncoder::new(Vec::new(), Compression::default());
+        gz_encoder.write_all(&tar_buffer).unwrap();
+        gz_encoder.finish().unwrap()
+    };
+
+    // Calculate checksum for the tar.gz
+    let checksum = calculate_sha256(&gz_buffer);
+
+    // Start mock server
+    let mut server = mockito::Server::new();
+    let url = server.url();
+
+    // Mock the release API with only tar.gz asset (no zip)
+    let release_mock = server
+        .mock("GET", "/repos/sst/opencode/releases/latest")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(format!(
+            r#"{{
+            "assets": [
+                {{
+                    "name": "opencode-linux-x64.tar.gz",
+                    "browser_download_url": "{}/download/tar.gz"
+                }},
+                {{
+                    "name": "opencode-linux-x64.tar.gz.sha256",
+                    "browser_download_url": "{}/download/sha256"
+                }}
+            ]
+        }}"#,
+            url, url
+        ))
+        .create();
+
+    // Mock the tar.gz download
+    let tar_gz_mock = server
+        .mock("GET", "/download/tar.gz")
+        .with_status(200)
+        .with_body(gz_buffer)
+        .create();
+
+    // Mock the checksum download
+    let checksum_mock = server
+        .mock("GET", "/download/sha256")
+        .with_status(200)
+        .with_body(&checksum)
+        .create();
+
+    // Create client and args
+    let client = ureq::Agent::new();
+    let args = Args {
+        bin: false,
+        rollback: None,
+        list_versions: false,
+        changelog: None,
+        compare: None,
+        keep_versions: 5,
+        force: false,
+    };
+
+    // Run the update process with mocks (skip installation)
+    let result = run_update(&args, &client, &url, None, true);
+    assert!(result.is_ok());
+
+    // Verify mocks were called
+    release_mock.assert();
+    tar_gz_mock.assert();
+    checksum_mock.assert();
 }
