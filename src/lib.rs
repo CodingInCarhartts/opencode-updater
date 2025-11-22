@@ -567,7 +567,11 @@ pub fn display_version_comparison(
 }
 
 /// Extracts an archive (zip or tar.gz) to the given directory.
-pub fn extract_archive(archive_bytes: Vec<u8>, asset_name: &str, temp_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+pub fn extract_archive(
+    archive_bytes: Vec<u8>,
+    asset_name: &str,
+    temp_dir: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
     if asset_name.ends_with(".zip") {
         // Extract zip archive
         let cursor = std::io::Cursor::new(archive_bytes);
@@ -691,7 +695,9 @@ pub fn run_update(
         (asset_name, download_url)
     } else {
         // Try zip first, then fallback to tar.gz
-        let (asset_name, download_url) = if let Some(asset) = find_asset(assets, "opencode-linux-x64.zip") {
+        let (asset_name, download_url) = if let Some(asset) =
+            find_asset(assets, "opencode-linux-x64.zip")
+        {
             let asset_name = "opencode-linux-x64.zip".to_string();
             let download_url = asset["browser_download_url"].as_str().unwrap().to_string();
             (asset_name, download_url)

@@ -1,6 +1,7 @@
 use opencode_updater::{
-    Args, VersionManager, calculate_sha256, compare_versions, download_with_progress, find_asset,
-    find_executable_binary, parse_version, run_update, verify_checksum, extract_archive,
+    Args, VersionManager, calculate_sha256, compare_versions, download_with_progress,
+    extract_archive, find_asset, find_executable_binary, parse_version, run_update,
+    verify_checksum,
 };
 use std::io::Cursor;
 use std::path::PathBuf;
@@ -292,12 +293,12 @@ fn test_get_current_version_none() {
 /// Test tar.gz extraction functionality
 #[test]
 fn test_extract_archive_tar_gz() {
+    use flate2::Compression;
+    use flate2::write::GzEncoder;
     use std::io::Write;
     use std::os::unix::fs::PermissionsExt;
-    use tempfile::tempdir;
-    use flate2::write::GzEncoder;
-    use flate2::Compression;
     use tar::Builder;
+    use tempfile::tempdir;
 
     // Create a temporary directory for extraction
     let extract_dir = tempdir().unwrap();
@@ -306,7 +307,7 @@ fn test_extract_archive_tar_gz() {
     let mut tar_buffer = Vec::new();
     {
         let mut tar = Builder::new(&mut tar_buffer);
-        
+
         // Add an executable file to the tar archive
         let file_content = b"fake binary content for tar.gz";
         let mut header = tar::Header::new_gnu();
@@ -332,7 +333,7 @@ fn test_extract_archive_tar_gz() {
     // Verify the extracted file exists and is executable
     let extracted_file = extract_dir.path().join("opencode");
     assert!(extracted_file.exists());
-    
+
     let metadata = std::fs::metadata(&extracted_file).unwrap();
     assert!(metadata.permissions().mode() & 0o111 != 0); // Check executable bit
 
@@ -344,16 +345,16 @@ fn test_extract_archive_tar_gz() {
 /// Test fallback behavior when zip is unavailable but tar.gz is available
 #[test]
 fn test_fallback_to_tar_gz() {
+    use flate2::Compression;
+    use flate2::write::GzEncoder;
     use std::io::Write;
     use tar::Builder;
-    use flate2::write::GzEncoder;
-    use flate2::Compression;
 
     // Create a mock tar.gz with a file
     let mut tar_buffer = Vec::new();
     {
         let mut tar = Builder::new(&mut tar_buffer);
-        
+
         let file_content = b"fake binary content for fallback test";
         let mut header = tar::Header::new_gnu();
         header.set_path("opencode").unwrap();
